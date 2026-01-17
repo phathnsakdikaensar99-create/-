@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Emoji RPG — Stable Lobby & Adventure</title>
+<style>
+  :root{--w:380px}
+  body{background:#0b0b0b;color:#fff;font-family:Inter,Arial;text-align:center;margin:0;padding:14px}
+  .wrap{max-width:var(--w);margin:0 auto}
+  #game{width:var(--w);height:240px;margin:10px auto;background:#1f1f1f;border-radius:12px;position:relative;overflow:hidden;border:2px solid #222;touch-action:manipulation}
+  .hero,.monster,.npc{position:absolute;bottom:22px;transition:left .22s,transform .12s;user-select:none}
+  .hero{left:36px;font-size:52px;transform:scaleX(-1)}
+  .monster{right:36px;font-size:52px}
+  .npc{left:150px;bottom:64px;font-size:36px;cursor:pointer}
+  .npcLabel{position:absolute;left:120px;bottom:108px;font-size:12px;background:rgba(0,0,0,.55);padding:4px 6px;border-radius:6px;pointer-events:none}
+  .hpbar{width:88%;height:14px;background:#333;margin:8px auto;border-radius:10px;overflow:hidden}
+  .hp{height:100%;background:linear-gradient(90deg,#ff5252,#b30000);width:100%}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px auto}
+  button{padding:8px 10px;border-radius:10px;border:none;font-weight:700;cursor:pointer}
+  .atk{background:#ff9800;color:#000}
+  .ult{background:#e91e63}
+  .heal{background:#4caf50;color:#000}
+  .shop{background:#2196f3}
+  .petbox{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
+  .slot{width:56px;height:56px;background:#333;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer}
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.8);z-index:60}
+  .modal .box{width:340px;background:#171717;padding:12px;border-radius:12px;text-align:center}
+  .eggs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0}
+  .egg{width:56px;height:80px;background:linear-gradient(180deg,#bfbfbf,#8f8f8f);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#222;position:relative;overflow:hidden;box-shadow:0 6px 12px rgba(0,0,0,.6);transform-origin:center}
+  .dmg{position:absolute;font-weight:900;color:#ffb3b3;text-shadow:0 0 8px #000;font-size:26px;pointer-events:none;z-index:70}
+  .winBox{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);padding:18px;border-radius:12px;font-size:20px;display:none;z-index:200;text-align:center}
+  .small{font-size:12px;color:#bbb}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#222;padding:8px 12px;border-radius:12px;display:none;z-index:120}
+
+  /* Egg sway animation */
+  .egg.sway{ animation: sway 0.9s ease-in-out infinite; }
+  @keyframes sway {
+    0% { transform: rotate(-6deg); }
+    50% { transform: rotate(6deg); }
+    100% { transform: rotate(-6deg); }
+  }
+  /* Crack animation */
+  .egg.crack{ animation: crack 0.28s ease forwards; }
+  @keyframes crack {
+    0% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(0.95) rotate(8deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  /* revealed style */
+  .egg.revealed{ background:linear-gradient(180deg,#fff,#ddd); font-size:32px; color:#000; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Emoji RPG — Stable</h1>
+  <div>สถานะ: <span id="modeLabel">Lobby</span>  &nbsp;|&nbsp; เงิน: <span id="goldLabel">20</span></div>
+
+  <div id="game" aria-label="game area">
+    <div id="hero" class="hero">🤺</div>
+    <div id="monster" class="monster"></div>
+    <div id="npc" class="npc" title="พ่อค้าสัตว์" tabindex="0">🕴️</div>
+    <div id="npcLabel" class="npcLabel">สุ่มสัตว์</div>
+  </div>
+
+  <div class="hpbar"><div id="playerHPbar" class="hp"></div></div>
+  <div id="playerHPtext" class="small"></div>
+
+  <div class="hpbar"><div id="monsterHPbar" class="hp"></div></div>
+  <div id="monsterHPtext" class="small"></div>
+
+  <!-- Lobby UI -->
+  <div id="lobbyUI">
+    <div class="controls">
+      <button id="openEggBtn" class="shop">คุยพ่อค้า (สุ่มไข่)</button>
+      <button id="startBtn" class="shop">▶️ ออกผจญภัย</button>
+      <button id="equipBestBtn" class="shop">⭐ Equip Best</button>
+    </div>
+    <div class="controls">
+      <button id="buyPowerBtn" class="shop">⚔️ อัพพลัง (10)</button>
+      <button id="buyPower10Btn" class="shop">⚔️ x10</button>
+      <button id="buyPower100Btn" class="shop">⚔️ x100</button>
+      <button id="buyHPBtn" class="shop">❤️ อัพเลือด (15)</button>
+      <button id="buyHP10Btn" class="shop">❤️ x10</button>
+      <button id="buyHP100Btn" class="shop">❤️ x100</button>
+    </div>
+    <div class="controls">
+      <button id="buyPetSlotBtn" class="shop">ซื้อช่อง Active (+1) (50,000)</button>
+    </div>
+
+    <div style="margin-top:8px">
+      <div><b>Active Pets (<span id="activeSlotCount">2</span>)</b></div>
+      <div id="activePets" class="petbox"></div>
+      <hr style="border-color:#222"/>
+      <div><b>Bag — Common</b></div>
+      <div id="bagCommon" class="petbox"></div>
+      <div><b>Bag — Epic</b></div>
+      <div id="bagEpic" class="petbox"></div>
+      <div><b>Bag — Legendary</b></div>
+      <div id="bagLegend" class="petbox"></div>
+    </div>
+  </div>
+
+  <!-- Adventure UI -->
+  <div id="advUI" style="display:none" class="controls">
+    <button id="atkBtn" class="atk">โจมตี</button>
+    <button id="ultBtn" class="ult">อัลติ</button>
+    <button id="healBtn" class="heal">ฮีล 25%</button>
+  </div>
+</div>
+
+<!-- Egg modal -->
+<div class="modal" id="eggModal">
+  <div class="box">
+    <h3>สุ่มไข่</h3>
+    <p class="small">ราคาไข่ละ 500</p>
+    <div style="margin:8px">
+      <button onclick="buyEggs(1)">สุ่ม 1</button>
+      <button onclick="buyEggs(3)">สุ่ม 3</button>
+      <button onclick="buyEggs(10)">สุ่ม 10</button>
+      <button onclick="skipEggs()">ข้าม</button>
+      <button onclick="closeEggModal()">ปิด</button>
+    </div>
+    <div class="eggs" id="eggsArea"></div>
+  </div>
+</div>
+
+<div class="winBox" id="winBox"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+
+/* -----------------------------
+   State & Config
+   ----------------------------- */
+let mode = 'lobby'; // 'lobby' | 'adventure'
+let gold = 20;
+let power = 5;
+let maxHP = 120;
+let playerHP = maxHP;
+let stage = 0;
+
+let monsterMaxHP = 0, monsterHP = 0, monsterAtk = 0, isBoss = false;
+let atkReady = true, ultReady = true, healReady = true;
+
+const MONSTER_HP_SCALE = 0.85;
+const NORMAL_REWARD_MULT = 30;
+const BOSS_REWARD_MULT = 90;
+
+const petDefs = [
+  {id:'dog',emoji:'🐕',tier:'Common',pct:0.20,price:300,weight:187.5},
+  {id:'chicken',emoji:'🐓',tier:'Common',pct:0.25,price:300,weight:187.5},
+  {id:'monkey',emoji:'🐒',tier:'Common',pct:0.27,price:300,weight:187.5},
+  {id:'cat',emoji:'🐈‍⬛',tier:'Common',pct:0.30,price:300,weight:187.5},
+  {id:'mammoth',emoji:'🦣',tier:'Epic',pct:0.70,price:900,weight:120},
+  {id:'gorilla',emoji:'🦍',tier:'Epic',pct:0.75,price:900,weight:120},
+  {id:'dragon',emoji:'🐉',tier:'Legendary',pct:1.75,price:4000,weight:10}
+];
+
+let bag = []; // {typeId,emoji,pct,tier,price,lvl}
+let activeSlots = 2;
+let active = new Array(activeSlots).fill(null);
+
+let petSlotPrice = 50000; // initial price, increases by 100000 each purchase
+const petSlotIncrement = 100000;
+
+const monsterPool = [
+  {emoji:'👾', baseHP:80, baseAtk:8},
+  {emoji:'👹', baseHP:120, baseAtk:10},
+  {emoji:'👺', baseHP:100, baseAtk:9},
+  {emoji:'🦴', baseHP:140, baseAtk:12},
+  {emoji:'🕷️', baseHP:90, baseAtk:11},
+  {emoji:'🦂', baseHP:110, baseAtk:13},
+  {emoji:'🐍', baseHP:95, baseAtk:10},
+  {emoji:'🧟', baseHP:130, baseAtk:12},
+  {emoji:'🪲', baseHP:85, baseAtk:9},
+  {emoji:'👻', baseHP:150, baseAtk:14},
+  {emoji:'💀', baseHP:160, baseAtk:15},
+  {emoji:'🐉', baseHP:220, baseAtk:18},
+  {emoji:'🦈', baseHP:170, baseAtk:16},
+  {emoji:'🦁', baseHP:130, baseAtk:14},
+  {emoji:'🦄', baseHP:200, baseAtk:17},
+  {emoji:'🤖', baseHP:180, baseAtk:16},
+  {emoji:'🐺', baseHP:110, baseAtk:11}
+];
+
+/* -----------------------------
+   DOM refs
+   ----------------------------- */
+const modeLabel = document.getElementById('modeLabel');
+const goldLabel = document.getElementById('goldLabel');
+const hero = document.getElementById('hero');
+const game = document.getElementById('game');
+const npc = document.getElementById('npc');
+const npcLabel = document.getElementById('npcLabel');
+const playerHPbar = document.getElementById('playerHPbar');
+const playerHPtext = document.getElementById('playerHPtext');
+const monsterEl = document.getElementById('monster');
+const monsterHPbar = document.getElementById('monsterHPbar');
+const monsterHPtext = document.getElementById('monsterHPtext');
+const lobbyUI = document.getElementById('lobbyUI');
+const advUI = document.getElementById('advUI');
+const openEggBtn = document.getElementById('openEggBtn');
+const startBtn = document.getElementById('startBtn');
+const equipBestBtn = document.getElementById('equipBestBtn');
+const buyPowerBtn = document.getElementById('buyPowerBtn');
+const buyPower10Btn = document.getElementById('buyPower10Btn');
+const buyPower100Btn = document.getElementById('buyPower100Btn');
+const buyHPBtn = document.getElementById('buyHPBtn');
+const buyHP10Btn = document.getElementById('buyHP10Btn');
+const buyHP100Btn = document.getElementById('buyHP100Btn');
+const buyPetSlotBtn = document.getElementById('buyPetSlotBtn');
+
+const atkBtn = document.getElementById('atkBtn');
+const ultBtn = document.getElementById('ultBtn');
+const healBtn = document.getElementById('healBtn');
+const eggModal = document.getElementById('eggModal');
+const eggsArea = document.getElementById('eggsArea');
+const bagCommon = document.getElementById('bagCommon');
+const bagEpic = document.getElementById('bagEpic');
+const bagLegend = document.getElementById('bagLegend');
+const activePetsDiv = document.getElementById('activePets');
+const winBox = document.getElementById('winBox');
+const toast = document.getElementById('toast');
+const activeSlotCountEl = document.getElementById('activeSlotCount');
+
+/* -----------------------------
+   Helpers
+   ----------------------------- */
+function showToast(txt){
+  toast.innerText = txt;
+  toast.style.display = 'block';
+  setTimeout(()=>toast.style.display='none',1400);
+}
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function formatNumber(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+/* -----------------------------
+   Update UI (controls visibility & NPC only in lobby)
+   ----------------------------- */
+function updateUI(){
+  modeLabel.innerText = mode === 'lobby' ? 'Lobby' : `Stage ${stage}`;
+  goldLabel.innerText = gold;
+  playerHPbar.style.width = Math.max(0, Math.floor(playerHP/maxHP*100)) + '%';
+  playerHPtext.innerText = `${playerHP}/${maxHP}`;
+  if(monsterMaxHP > 0){
+    monsterHPbar.style.width = Math.max(0, Math.floor(monsterHP/monsterMaxHP*100)) + '%';
+    monsterHPtext.innerText = `${monsterHP}/${monsterMaxHP}` + (isBoss ? `  ⏱ ${bossTime}s` : '');
+  } else {
+    monsterHPbar.style.width = '0%';
+    monsterHPtext.innerText = '';
+  }
+
+  // show/hide sets
+  lobbyUI.style.display = (mode === 'lobby') ? 'block' : 'none';
+  advUI.style.display = (mode === 'adventure') ? 'flex' : 'none';
+
+  // NPC visible only in lobby
+  if(mode === 'lobby'){ npc.style.display = 'block'; npcLabel.style.display = 'block'; openEggBtn.disabled = false; }
+  else { npc.style.display = 'none'; npcLabel.style.display = 'none'; openEggBtn.disabled = true; }
+
+  // update pet slot display & buy button text
+  activeSlotCountEl.innerText = activeSlots;
+  buyPetSlotBtn.innerText = `ซื้อช่อง Active (+1) (${formatNumber(petSlotPrice)})`;
+
+  renderPets();
+}
+
+/* -----------------------------
+   Movement in Lobby (click/tap)
+   ----------------------------- */
+game.addEventListener('click', (e)=>{
+  if(mode !== 'lobby') return;
+  // if NPC clicked, its handler stops propagation
+  const rect = game.getBoundingClientRect();
+  const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX);
+  const x = clientX - rect.left;
+  const left = Math.max(8, Math.min(x-20, rect.width - 60));
+  hero.style.left = left + 'px';
+});
+
+/* -----------------------------
+   NPC: open egg modal only in lobby
+   ----------------------------- */
+npc.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(mode !== 'lobby'){ showToast('พ่อค้าอยู่ที่ Lobby เท่านั้น'); return; }
+  openEggModal();
+});
+openEggBtn.addEventListener('click', (e)=>{ e.preventDefault(); if(mode !== 'lobby'){ showToast('พ่อค้าอยู่ที่ Lobby เท่านั้น'); return; } openEggModal(); });
+
+function openEggModal(){ eggModal.style.display = 'flex'; eggsArea.innerHTML = ''; eggSkip = false; }
+function closeEggModal(){ eggModal.style.display = 'none'; }
+
+/* -----------------------------
+   Pets UI (render, sell, equip)
+   ----------------------------- */
+function renderPets(){
+  bagCommon.innerHTML = ''; bagEpic.innerHTML = ''; bagLegend.innerHTML = ''; activePetsDiv.innerHTML = '';
+  // sanitize active indices (if bag changed)
+  for(let i=0;i<active.length;i++){
+    if(active[i] != null && (active[i] < 0 || active[i] >= bag.length)) active[i] = null;
+  }
+
+  bag.forEach((p, idx) => {
+    const el = document.createElement('div');
+    el.className = 'slot';
+    el.innerText = p.emoji + (p.lvl > 1 ? ('+'+p.lvl) : '');
+    el.title = `${p.tier}\nDMG ${Math.round(p.pct*100)}%\nขาย ${p.price}`;
+    el.addEventListener('click', ()=>{
+      const sell = confirm(`สัตว์ ${p.emoji}\nระดับ ${p.tier}\nดาเมจ ${Math.round(p.pct*100)}%\nกด ตกลง เพื่อขาย รับ ${p.price}\nกด ยกเลิก เพื่อใส่ Active`);
+      if(sell){
+        // remove and adjust active indices
+        removeBagIndex(idx);
+        gold += p.price;
+        showToast('ขายแล้ว');
+        updateUI();
+      } else {
+        toggleEquip(idx);
+      }
+    });
+    if(p.tier === 'Common') bagCommon.appendChild(el);
+    else if(p.tier === 'Epic') bagEpic.appendChild(el);
+    else bagLegend.appendChild(el);
+  });
+
+  // render active slots based on activeSlots
+  for(let i=0;i<activeSlots;i++){
+    const s = document.createElement('div');
+    s.className = 'slot';
+    if(active[i] != null && bag[active[i]]) s.innerText = bag[active[i]].emoji + (bag[active[i]].lvl>1?('+'+bag[active[i]].lvl):'');
+    s.addEventListener('click', ()=>{
+      if(active[i] != null){ active[i] = null; updateUI(); }
+      else showToast('เลือกสัตว์จากกระเป๋าเพื่อใส่ช่อง');
+    });
+    activePetsDiv.appendChild(s);
+  }
+}
+
+function removeBagIndex(idx){
+  // remove item and adjust active indices
+  bag.splice(idx,1);
+  for(let j=0;j<active.length;j++){
+    if(active[j] == null) continue;
+    if(active[j] == idx) active[j] = null;
+    else if(active[j] > idx) active[j]--;
+  }
+}
+
+function toggleEquip(bagIndex){
+  const found = active.indexOf(bagIndex);
+  if(found !== -1){ active[found] = null; updateUI(); return; }
+  const free = active.indexOf(null);
+  if(free === -1){ showToast('ช่อง Active เต็ม ('+activeSlots+')'); return; }
+  active[free] = bagIndex;
+  updateUI();
+}
+
+function equipBest(){
+  const arr = bag.map((p,i)=>({p,i})).sort((a,b)=>b.p.pct - a.p.pct);
+  active = new Array(activeSlots).fill(null);
+  for(let i=0;i<activeSlots && i < arr.length; i++) active[i] = arr[i].i;
+  updateUI();
+}
+
+// attach equipBest button handler (fix)
+equipBestBtn.addEventListener('click', ()=>{
+  if(mode !== 'lobby'){ showToast('ทำได้ที่ Lobby เท่านั้น'); return; }
+  equipBest();
+});
+
+/* -----------------------------
+   Eggs (modal + reveal) with sway animation
+   ----------------------------- */
+let eggSkip = false;
+async function buyEggs(n){
+  const cost = 500 * n;
+  if(gold < cost){ showToast('เงินไม่พอ'); return; }
+  gold -= cost; updateUI();
+  eggsArea.innerHTML = ''; eggSkip = false;
+  const items = [];
+  for(let i=0;i<n;i++){
+    const el = document.createElement('div'); el.className = 'egg'; el.innerHTML = '<div>🥚</div>';
+    // add sway animation for suspense
+    el.classList.add('sway');
+    eggsArea.appendChild(el); items.push(el);
+  }
+  for(const el of items){
+    if(eggSkip){ revealEgg(el); continue; }
+    el.classList.add('crack'); await wait(300);
+    revealEgg(el); await wait(400);
+  }
+  // auto close shortly
+  setTimeout(()=>{ eggModal.style.display = 'none'; }, 600);
+}
+function skipEggs(){ eggSkip = true; const all = [...eggsArea.querySelectorAll('.egg')]; all.forEach(revealEgg); }
+function revealEgg(el){
+  if(el.dataset.r) return; el.dataset.r = '1';
+  // stop sway & crack animations
+  el.classList.remove('sway');
+  el.classList.remove('crack');
+  const total = petDefs.reduce((s,p)=>s+p.weight,0);
+  let r = Math.random()*total;
+  for(const p of petDefs){
+    if(r < p.weight){
+      bag.push({typeId:p.id,emoji:p.emoji,pct:p.pct,tier:p.tier,price:p.price,lvl:1});
+      // show emoji on the egg visually
+      el.classList.add('revealed');
+      el.innerHTML = `<div style="font-size:34px">${p.emoji}</div>`;
+      showToast(`ได้ ${p.tier} ${p.emoji}`);
+      break;
+    }
+    r -= p.weight;
+  }
+  updateUI();
+}
+
+/* -----------------------------
+   Start adventure / spawn / enter lobby
+   ----------------------------- */
+startBtn.addEventListener('click', ()=> {
+  if(mode !== 'lobby'){ showToast('กำลังผจญภัยอยู่'); return; }
+  startAdventure();
+});
+
+function startAdventure(){
+  mode = 'adventure';
+  stage++;
+  spawnMonster();
+  startLoops();
+  startRegen();
+  updateUI();
+}
+
+function enterLobby(){
+  mode = 'lobby';
+  stopLoops();
+  stopRegen();
+  // remove monster from view
+  monsterEl.innerText = '';
+  monsterMaxHP = 0; monsterHP = 0; monsterAtk = 0; isBoss = false;
+  updateUI();
+}
+
+/* -----------------------------
+   Monster spawn & boss timer
+   ----------------------------- */
+let bossTime = 0, bossTimer = null;
+function spawnMonster(){
+  const m = randPick(monsterPool);
+  isBoss = (stage % 5 === 0);
+  const scale = 1 + stage * 0.12;
+  monsterMaxHP = Math.floor(m.baseHP * scale * (isBoss ? 4 : 1) * MONSTER_HP_SCALE);
+  monsterHP = monsterMaxHP;
+  monsterAtk = Math.max(1, Math.floor(m.baseAtk * (isBoss ? 1.6 : 1) * (1 + stage * 0.05)));
+  monsterEl.innerText = m.emoji + (isBoss ? ' 👑' : '');
+  if(isBoss) startBossTimer();
+  updateUI();
+}
+function startBossTimer(){
+  clearBossTimer();
+  bossTime = 15;
+  bossTimer = setInterval(()=>{
+    if(mode !== 'adventure') return;
+    bossTime--;
+    if(bossTime <= 0){ clearBossTimer(); loseAndReset(); showToast('หมดเวลา บอสหนี! ข้อมูลถูกล้าง'); }
+    updateUI();
+  },1000);
+}
+function clearBossTimer(){ if(bossTimer){ clearInterval(bossTimer); bossTimer = null; } }
+
+/* -----------------------------
+   Attacks (cooldowns)
+   ----------------------------- */
+atkBtn.addEventListener('click', playerAttack);
+ultBtn.addEventListener('click', playerUltimate);
+healBtn.addEventListener('click', playerHeal);
+
+function playerAttack(){
+  if(mode !== 'adventure' || !atkReady || monsterHP <= 0) return;
+  atkReady = false; atkBtn.disabled = true;
+  hero.classList.add('move-attack'); setTimeout(()=>hero.classList.remove('move-attack'),220);
+  const dmg = power;
+  showDmgAtMonster(dmg,false);
+  monsterHP = Math.max(0, monsterHP - dmg);
+  if(monsterHP <= 0) onWin();
+  setTimeout(()=>{ atkReady = true; atkBtn.disabled = false; },1000);
+  updateUI();
+}
+
+function playerUltimate(){
+  if(mode !== 'adventure' || !ultReady || monsterHP <= 0) return;
+  ultReady = false; ultBtn.disabled = true;
+  const dmg = power * 10;
+  showDmgAtMonster(dmg,true);
+  monsterHP = Math.max(0, monsterHP - dmg);
+  if(monsterHP <= 0) onWin();
+  let cd = 20; ultBtn.innerText = `อัลติ (${cd}s)`;
+  const t = setInterval(()=>{ cd--; ultBtn.innerText = `อัลติ (${cd}s)`; if(cd <= 0){ clearInterval(t); ultReady = true; ultBtn.disabled = false; ultBtn.innerText = 'อัลติ'; } },1000);
+  updateUI();
+}
+
+function playerHeal(){
+  if(mode !== 'adventure' || !healReady) return;
+  healReady = false; healBtn.disabled = true;
+  const amt = Math.floor(maxHP * 0.25);
+  playerHP = Math.min(maxHP, playerHP + amt);
+  showDmgAtPlayer('+'+amt,'#7fffd4');
+  setTimeout(()=>{ healReady = true; healBtn.disabled = false; },15000);
+  updateUI();
+}
+
+/* -----------------------------
+   Loops: monster attack & pet attacks
+   (monster attack interval changed to 2500ms)
+   ----------------------------- */
+let monsterLoop = null, petLoop = null;
+function startLoops(){
+  stopLoops();
+  monsterLoop = setInterval(()=>{
+    if(mode !== 'adventure' || monsterHP <= 0) return;
+    monsterEl.classList.add('move-mattack'); setTimeout(()=>monsterEl.classList.remove('move-mattack'),220);
+    const dmg = Math.max(1, monsterAtk);
+    playerHP = Math.max(0, playerHP - dmg);
+    showDmgAtPlayer('-'+dmg,'#ffd');
+    if(playerHP <= 0){ loseAndReset(); showToast('คุณตาย! ข้อมูลถูกล้าง'); }
+    updateUI();
+  },2500); // <-- changed from 3000 to 2500 ms
+
+  petLoop = setInterval(()=>{
+    if(mode !== 'adventure' || monsterHP <= 0) return;
+    for(const idx of active){
+      if(idx == null) continue;
+      const p = bag[idx];
+      if(!p) continue;
+      const dmg = Math.max(0, Math.floor(power * p.pct * (1 + (p.lvl-1)*0.12)));
+      showDmgAtMonster(dmg,false,true);
+      monsterHP = Math.max(0, monsterHP - dmg);
+      if(monsterHP <= 0){ onWin(); break; }
+    }
+    updateUI();
+  },1000);
+}
+
+function stopLoops(){ if(monsterLoop){ clearInterval(monsterLoop); monsterLoop = null; } if(petLoop){ clearInterval(petLoop); petLoop = null; } clearBossTimer(); }
+
+/* -----------------------------
+   Regen 10% every 5s (adventure only)
+   ----------------------------- */
+let regenTimer = null;
+function startRegen(){
+  stopRegen();
+  regenTimer = setInterval(()=>{
+    if(mode !== 'adventure') return;
+    const heal = Math.floor(maxHP * 0.10);
+    if(playerHP < maxHP){
+      playerHP = Math.min(maxHP, playerHP + heal);
+      showDmgAtPlayer('+'+heal,'#7fffd4');
+      updateUI();
+    }
+  },5000);
+}
+function stopRegen(){ if(regenTimer){ clearInterval(regenTimer); regenTimer = null; } }
+
+/* -----------------------------
+   Win / Lose (with choice to continue)
+   ----------------------------- */
+function onWin(){
+  stopLoops(); stopRegen();
+  const reward = isBoss ? stage * BOSS_REWARD_MULT : stage * NORMAL_REWARD_MULT;
+  gold += reward;
+  playerHP = maxHP; // heal full on win
+  // Show choice UI
+  winBox.innerHTML = `
+    🎉 ชนะแล้ว!<br>
+    เงิน +${reward}<div style="margin-top:10px" class="small">เลือก: กลับ Lobby หรือ สู้ต่อ</div>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+      <button id="btnToLobby" class="shop">กลับ Lobby</button>
+      <button id="btnContinue" class="shop">สู้ต่อ</button>
+    </div>
+  `;
+  winBox.style.display = 'block';
+  updateUI();
+
+  // attach handlers
+  document.getElementById('btnToLobby').addEventListener('click', ()=>{
+    winBox.style.display = 'none';
+    enterLobby();
+  });
+  document.getElementById('btnContinue').addEventListener('click', ()=>{
+    winBox.style.display = 'none';
+    // go to next stage and spawn new monster and resume loops
+    stage++;
+    spawnMonster();
+    startLoops();
+    startRegen();
+    updateUI();
+  });
+}
+
+function loseAndReset(){
+  bag = []; active = new Array(2).fill(null); activeSlots = 2;
+  petSlotPrice = 50000;
+  gold = 20; power = 5; maxHP = 120; playerHP = maxHP; stage = 0;
+  mode = 'lobby';
+  stopLoops(); stopRegen(); clearBossTimer();
+  monsterEl.innerText = ''; monsterMaxHP = 0; monsterHP = 0; isBoss = false;
+  updateUI();
+  showToast('แพ้! ข้อมูลถูกล้าง');
+}
+
+/* -----------------------------
+   Damage visual helpers
+   ----------------------------- */
+function showDmgAtMonster(n,isCrit=false,fromPet=false){
+  const el = document.createElement('div'); el.className = 'dmg';
+  el.innerText = (isCrit ? 'CRIT '+n : n);
+  el.style.left = (280 + (fromPet ? -40 : 0)) + 'px'; el.style.top = '28px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),900);
+}
+function showDmgAtPlayer(txt,color='#ffd'){
+  const el = document.createElement('div'); el.className = 'dmg';
+  el.style.color = color; el.innerText = txt;
+  el.style.left = '80px'; el.style.top = '28px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),900);
+}
+
+/* -----------------------------
+   Upgrades (Lobby only) + bulk buys
+   ----------------------------- */
+buyPowerBtn.addEventListener('click', ()=>{ buyPower(1); });
+buyPower10Btn.addEventListener('click', ()=>{ buyPower(10); });
+buyPower100Btn.addEventListener('click', ()=>{ buyPower(100); });
+
+function buyPower(n){
+  if(mode !== 'lobby'){ showToast('อัพได้ที่ Lobby เท่านั้น'); return; }
+  const costPer = 10;
+  const total = costPer * n;
+  if(gold < total){
+    const can = Math.floor(gold / costPer);
+    if(can <= 0){ showToast('เงินไม่พอ'); return; }
+    // buy as many as possible
+    n = can;
+  }
+  gold -= costPer * n;
+  power += n;
+  showToast(`อัพพลัง x${n}`);
+  updateUI();
+}
+
+buyHPBtn.addEventListener('click', ()=>{ buyHP(1); });
+buyHP10Btn.addEventListener('click', ()=>{ buyHP(10); });
+buyHP100Btn.addEventListener('click', ()=>{ buyHP(100); });
+
+function buyHP(n){
+  if(mode !== 'lobby'){ showToast('อัพได้ที่ Lobby เท่านั้น'); return; }
+  const costPer = 15;
+  const total = costPer * n;
+  if(gold < total){
+    const can = Math.floor(gold / costPer);
+    if(can <= 0){ showToast('เงินไม่พอ'); return; }
+    n = can;
+  }
+  gold -= costPer * n;
+  maxHP += 20 * n;
+  playerHP = maxHP;
+  showToast(`อัพเลือด x${n}`);
+  updateUI();
+}
+
+/* -----------------------------
+   Buy pet slot
+   ----------------------------- */
+buyPetSlotBtn.addEventListener('click', ()=>{
+  if(mode !== 'lobby'){ showToast('ซื้อได้ที่ Lobby เท่านั้น'); return; }
+  if(gold < petSlotPrice){ showToast('เงินไม่พอ'); return; }
+  gold -= petSlotPrice;
+  petSlotPrice += petSlotIncrement;
+  activeSlots++;
+  // expand active array
+  active = active.concat(new Array(1).fill(null));
+  showToast('ซื้อช่องสำเร็จ');
+  updateUI();
+});
+
+/* -----------------------------
+   Expose egg functions for inline onclicks
+   ----------------------------- */
+window.buyEggs = buyEggs;
+window.skipEggs = skipEggs;
+window.closeEggModal = closeEggModal;
+
+/* -----------------------------
+   Init
+   ----------------------------- */
+updateUI();
+
+// accessibility: press Enter on npc icon to open when in lobby
+npc.addEventListener('keydown',(e)=>{ if(e.key === 'Enter') npc.click(); });
+
+}); // DOMContentLoaded
+</script>
+</body>
+  </html>
