@@ -13,7 +13,8 @@
   #game{width:var(--w);height:240px;margin:10px auto;border-radius:12px;position:relative;overflow:hidden;border:2px solid #222;touch-action:manipulation}
   .hero,.monster,.npc{position:absolute;transition:left .22s,transform .12s;user-select:none}
   .hero{left:36px;bottom:22px;font-size:52px;transform-origin:center}
-  .monster{right:36px;font-size:20px;height:100px;width:120px;text-align:center}
+  /* FIX: anchor monster to bottom so it doesn't float near the top */
+  .monster{right:36px; bottom:22px; font-size:20px;height:100px;width:120px;text-align:center}
   .monster-emoji{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;font-size:52px;pointer-events:none}
   .monster-badge{position:absolute;left:50%;transform:translateX(-50%);bottom:86px;font-size:14px;background:transparent;padding:2px 6px;border-radius:6px}
   .npc{left:150px;bottom:64px;font-size:36px;cursor:pointer}
@@ -830,7 +831,10 @@ function endInfinity(){
   gold += payout;
   if(infinityWave > bestWave) bestWave = infinityWave;
   showToast(`จบ Infinity! ได้เงิน ${formatNumber(payout)} (เวฟ ${infinityWave})`);
-  infinityMode = false; infinityWave = 0;
+  infinityMode = false;
+  // FIX: restore HP to full when Infinity ends
+  playerHP = maxHP;
+  infinityWave = 0;
   surrenderBtn.style.display = 'none';
   enterLobby();
   updateUI();
@@ -1021,6 +1025,8 @@ surrenderBtn.addEventListener('click', ()=>{
     const payout = Math.floor(infinityWave * 10 * (rebirthMultiplier || 1));
     gold += payout;
     if(infinityWave > bestWave) bestWave = infinityWave;
+    // FIX: restore HP to full when surrendering from Infinity
+    playerHP = maxHP;
     infinityMode = false; surrenderBtn.style.display = 'none';
     showToast(`จบ Infinity! ได้เงิน ${formatNumber(payout)} (เวฟ ${infinityWave})`);
     enterLobby(); updateUI();
