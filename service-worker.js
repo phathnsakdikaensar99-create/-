@@ -1,9 +1,9 @@
 const CACHE_NAME = "emoji-rpg-v1";
 const ASSETS = [
-  "/-/",
-  "/-/index.html",
-  "/-/manifest.json",
-  "/-/service-worker.js"
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./service-worker.js"
 ];
 
 self.addEventListener("install", event => {
