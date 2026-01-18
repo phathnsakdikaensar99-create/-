@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Emoji RPG — Stable Lobby & Adventure</title>
+<title>Emoji RPG — Full</title>
 <style>
   :root{--w:380px}
   body{background:#0b0b0b;color:#fff;font-family:Inter,Arial;text-align:center;margin:0;padding:14px}
   .wrap{max-width:var(--w);margin:0 auto}
-  #game{width:var(--w);height:240px;margin:10px auto;background:#1f1f1f;border-radius:12px;position:relative;overflow:hidden;border:2px solid #222;touch-action:manipulation}
-  .hero,.monster,.npc{position:absolute;bottom:22px;transition:left .22s,transform .12s;user-select:none}
-  .hero{left:36px;font-size:52px;transform:scaleX(-1)}
-  .monster{right:36px;font-size:52px}
+  #game{width:var(--w);height:240px;margin:10px auto;border-radius:12px;position:relative;overflow:hidden;border:2px solid #222;touch-action:manipulation}
+  .hero,.monster,.npc{position:absolute;transition:left .22s,transform .12s;user-select:none}
+  .hero{left:36px;bottom:22px;font-size:52px;transform-origin:center}
+  .monster{right:36px;font-size:20px;height:100px;width:120px;text-align:center}
+  .monster-emoji{position:absolute;left:50%;transform:translateX(-50%);bottom:34px;font-size:52px;pointer-events:none}
+  .monster-badge{position:absolute;left:50%;transform:translateX(-50%);bottom:86px;font-size:14px;background:transparent;padding:2px 6px;border-radius:6px}
   .npc{left:150px;bottom:64px;font-size:36px;cursor:pointer}
   .npcLabel{position:absolute;left:120px;bottom:108px;font-size:12px;background:rgba(0,0,0,.55);padding:4px 6px;border-radius:6px;pointer-events:none}
   .hpbar{width:88%;height:14px;background:#333;margin:8px auto;border-radius:10px;overflow:hidden}
@@ -24,41 +26,55 @@
   .shop{background:#2196f3}
   .petbox{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
   .slot{width:56px;height:56px;background:#333;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer}
+  .slot.secret{background:#111;color:#ddd;border:2px solid #fff}
+  .slot.common{color:#4caf50}
+  .slot.epic{color:#9b59b6}
+  .slot.legend{color:#f1c40f}
   .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.8);z-index:60}
-  .modal .box{width:340px;background:#171717;padding:12px;border-radius:12px;text-align:center}
-  .eggs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0}
-  .egg{width:56px;height:80px;background:linear-gradient(180deg,#bfbfbf,#8f8f8f);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#222;position:relative;overflow:hidden;box-shadow:0 6px 12px rgba(0,0,0,.6);transform-origin:center}
-  .dmg{position:absolute;font-weight:900;color:#ffb3b3;text-shadow:0 0 8px #000;font-size:26px;pointer-events:none;z-index:70}
+  .modal .box{width:340px;background:#171717;padding:12px;border-radius:12px;text-align:center;max-height:82vh;overflow:auto;box-sizing:border-box}
+  .eggs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0;max-height:220px;overflow:auto;padding:6px}
+  .egg{width:44px;height:64px;background:linear-gradient(180deg,#bfbfbf,#8f8f8f);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#222;position:relative;overflow:hidden;box-shadow:0 6px 12px rgba(0,0,0,.6);margin:4px;transform-origin:center}
+  .dmg{position:absolute;font-weight:900;color:#ffb3b3;text-shadow:0 0 8px #000;font-size:18px;pointer-events:none;z-index:70}
   .winBox{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);padding:18px;border-radius:12px;font-size:20px;display:none;z-index:200;text-align:center}
   .small{font-size:12px;color:#bbb}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#222;padding:8px 12px;border-radius:12px;display:none;z-index:120}
 
   /* Egg sway animation */
   .egg.sway{ animation: sway 0.9s ease-in-out infinite; }
-  @keyframes sway {
-    0% { transform: rotate(-6deg); }
-    50% { transform: rotate(6deg); }
-    100% { transform: rotate(-6deg); }
-  }
-  /* Crack animation */
+  @keyframes sway {0%{transform:rotate(-6deg);}50%{transform:rotate(6deg);}100%{transform:rotate(-6deg);}}
   .egg.crack{ animation: crack 0.28s ease forwards; }
-  @keyframes crack {
-    0% { transform: scale(1) rotate(0deg); }
-    50% { transform: scale(0.95) rotate(8deg); }
-    100% { transform: scale(1) rotate(0deg); }
-  }
-  /* revealed style */
-  .egg.revealed{ background:linear-gradient(180deg,#fff,#ddd); font-size:32px; color:#000; }
+  @keyframes crack {0%{transform:scale(1) rotate(0deg);}50%{transform:scale(0.95) rotate(8deg);}100%{transform:scale(1) rotate(0deg);}}
+  .egg.revealed{ background:linear-gradient(180deg,#fff,#ddd); font-size:28px; color:#000; }
+
+  /* hero attack move */
+  .move-attack{ animation: hero-attack 0.7s ease; }
+  @keyframes hero-attack {0%{transform:translateX(0);}40%{transform:translateX(120px);}100%{transform:translateX(0);}}
+  .move-mattack{ animation: monster-hit 0.3s ease; }
+  @keyframes monster-hit {0%{transform:translateX(0);}50%{transform:translateX(-8px);}100%{transform:translateX(0);}}
+
+  /* pet sprite in game */
+  .pet-sprite{ position:absolute; font-size:34px; transition:left .2s, transform .12s; pointer-events:none; z-index:50 }
+  .pet-attack{ animation: pet-attack 0.7s ease; }
+  @keyframes pet-attack {0%{transform:translateX(0);}40%{transform:translateX(120px);}100%{transform:translateX(0);}}
+
+  /* zones */
+  .zone-1{ background: linear-gradient(180deg,#1f1f1f,#131313); }
+  .zone-2{ background: linear-gradient(180deg,#2b1b3a,#16091a); }
+  .zone-3{ background: linear-gradient(180deg,#2a1d0b,#120904); }
+  .zone-4{ background: linear-gradient(180deg,#1b2a1b,#071007); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Emoji RPG — Stable</h1>
-  <div>สถานะ: <span id="modeLabel">Lobby</span>  &nbsp;|&nbsp; เงิน: <span id="goldLabel">20</span></div>
+  <h1>Emoji RPG — Full</h1>
+  <div>
+    สถานะ: <span id="modeLabel">Lobby</span>  &nbsp;|&nbsp; เงิน: <span id="goldLabel">20</span>
+    &nbsp;|&nbsp; ผู้เล่น: <span id="playerCodeLabel" class="small">-</span>
+  </div>
 
-  <div id="game" aria-label="game area">
+  <div id="game" class="zone-1" aria-label="game area">
     <div id="hero" class="hero">🤺</div>
-    <div id="monster" class="monster"></div>
+    <div id="monster" class="monster"><div class="monster-emoji"></div><div class="monster-badge"></div></div>
     <div id="npc" class="npc" title="พ่อค้าสัตว์" tabindex="0">🕴️</div>
     <div id="npcLabel" class="npcLabel">สุ่มสัตว์</div>
   </div>
@@ -69,27 +85,56 @@
   <div class="hpbar"><div id="monsterHPbar" class="hp"></div></div>
   <div id="monsterHPtext" class="small"></div>
 
+  <div style="margin-top:8px;text-align:left">
+    <div class="small">สถานะด่วน:</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="small">🔹 ไข่สุ่ม: <span id="eggsOpened">0</span></div>
+      <div class="small">🔹 พลัง: <span id="statPower">5</span></div>
+      <div class="small">🔹 MaxHP: <span id="statMaxHP">120</span></div>
+      <div class="small">🔹 ช่อง Active: <span id="activeSlotCount">2</span></div>
+      <div class="small">🔹 สัตว์ทั้งหมด: <span id="totalPets">0</span></div>
+      <div class="small">🔹 Rebirth: <span id="rebirthCount">0</span></div>
+      <div class="small">🔹 ตัวคูณเงิน: x<span id="rebirthMultiplier">1</span></div>
+      <div class="small">🔹 Best Wave (Inf): <span id="bestWave">0</span></div>
+    </div>
+  </div>
+
   <!-- Lobby UI -->
   <div id="lobbyUI">
     <div class="controls">
       <button id="openEggBtn" class="shop">คุยพ่อค้า (สุ่มไข่)</button>
       <button id="startBtn" class="shop">▶️ ออกผจญภัย</button>
+      <button id="infinityBtn" class="shop">∞ โหมด Infinity</button>
       <button id="equipBestBtn" class="shop">⭐ Equip Best</button>
     </div>
+
     <div class="controls">
-      <button id="buyPowerBtn" class="shop">⚔️ อัพพลัง (10)</button>
+      <button id="buyPowerBtn" class="shop">⚔️ อัพพลัง</button>
       <button id="buyPower10Btn" class="shop">⚔️ x10</button>
       <button id="buyPower100Btn" class="shop">⚔️ x100</button>
-      <button id="buyHPBtn" class="shop">❤️ อัพเลือด (15)</button>
+      <button id="buyPower1000Btn" class="shop">⚔️ x1000</button>
+      <button id="buyPower10000Btn" class="shop">⚔️ x10000</button>
+    </div>
+
+    <div class="controls">
+      <button id="buyHPBtn" class="shop">❤️ อัพเลือด</button>
       <button id="buyHP10Btn" class="shop">❤️ x10</button>
       <button id="buyHP100Btn" class="shop">❤️ x100</button>
     </div>
+
     <div class="controls">
       <button id="buyPetSlotBtn" class="shop">ซื้อช่อง Active (+1) (50,000)</button>
+      <button id="autoSellBtn" class="shop">ขาย Common อัตโนมัติ</button>
+      <button id="autoSellEpicBtn" class="shop">ขาย Epic อัตโนมัติ</button>
+    </div>
+
+    <div class="controls">
+      <button id="rebirthBtn" class="shop">Rebirth (1,000,000)</button>
+      <button id="logoutBtn" class="shop">ออกจากระบบ</button>
     </div>
 
     <div style="margin-top:8px">
-      <div><b>Active Pets (<span id="activeSlotCount">2</span>)</b></div>
+      <div><b>Active Pets (<span id="activePetsCountDisplay">2</span>)</b></div>
       <div id="activePets" class="petbox"></div>
       <hr style="border-color:#222"/>
       <div><b>Bag — Common</b></div>
@@ -98,6 +143,8 @@
       <div id="bagEpic" class="petbox"></div>
       <div><b>Bag — Legendary</b></div>
       <div id="bagLegend" class="petbox"></div>
+      <div><b>Bag — Secret</b></div>
+      <div id="bagSecret" class="petbox"></div>
     </div>
   </div>
 
@@ -106,7 +153,9 @@
     <button id="atkBtn" class="atk">โจมตี</button>
     <button id="ultBtn" class="ult">อัลติ</button>
     <button id="healBtn" class="heal">ฮีล 25%</button>
+    <button id="surrenderBtn" class="shop" style="display:none">ยอมแพ้ (Infinity)</button>
   </div>
+
 </div>
 
 <!-- Egg modal -->
@@ -114,14 +163,33 @@
   <div class="box">
     <h3>สุ่มไข่</h3>
     <p class="small">ราคาไข่ละ 500</p>
-    <div style="margin:8px">
+    <div style="margin:8px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
       <button onclick="buyEggs(1)">สุ่ม 1</button>
       <button onclick="buyEggs(3)">สุ่ม 3</button>
       <button onclick="buyEggs(10)">สุ่ม 10</button>
+      <button id="buyEgg100Btn">สุ่ม 100</button>
+      <button id="buyEgg1000Btn">สุ่ม 1000</button>
       <button onclick="skipEggs()">ข้าม</button>
       <button onclick="closeEggModal()">ปิด</button>
     </div>
+    <div class="small" id="dropRatesArea" style="margin-top:8px"></div>
     <div class="eggs" id="eggsArea"></div>
+  </div>
+</div>
+
+<!-- Auth Modal -->
+<div class="modal" id="authModal">
+  <div class="box">
+    <h3 id="authTitle">เข้าสู่ระบบ / สมัคร</h3>
+    <div style="text-align:left;margin-top:8px">
+      <label class="small">รหัสผู้เล่น (จำไว้เพื่อกลับมาเล่นต่อ):</label><br/>
+      <input id="authCodeInput" style="width:90%;padding:8px;border-radius:8px;border:none;margin-top:6px"/><br/>
+      <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
+        <button id="authLoginBtn" class="shop">ล็อกอิน</button>
+        <button id="authRegisterBtn" class="shop">สมัครใหม่</button>
+      </div>
+      <div style="margin-top:10px" class="small">หมายเหตุ: รหัสนี้ใช้เป็นกุญแจเก็บข้อมูลบนเครื่องนี้เท่านั้น</div>
+    </div>
   </div>
 </div>
 
@@ -129,6 +197,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// Global error catcher to surface runtime errors quickly
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error('Global error:', message, source, lineno, colno, error);
+  try { alert('เกิดข้อผิดพลาด: ' + message); } catch(e){}
+};
+
 document.addEventListener('DOMContentLoaded', ()=>{
 
 /* -----------------------------
@@ -145,25 +219,37 @@ let monsterMaxHP = 0, monsterHP = 0, monsterAtk = 0, isBoss = false;
 let atkReady = true, ultReady = true, healReady = true;
 
 const MONSTER_HP_SCALE = 0.85;
-const NORMAL_REWARD_MULT = 30;
-const BOSS_REWARD_MULT = 90;
+const NORMAL_REWARD_MULT = 50;
+const BOSS_REWARD_MULT = 150;
 
+// Drop table with explicit probabilities (percent)
 const petDefs = [
-  {id:'dog',emoji:'🐕',tier:'Common',pct:0.20,price:300,weight:187.5},
-  {id:'chicken',emoji:'🐓',tier:'Common',pct:0.25,price:300,weight:187.5},
-  {id:'monkey',emoji:'🐒',tier:'Common',pct:0.27,price:300,weight:187.5},
-  {id:'cat',emoji:'🐈‍⬛',tier:'Common',pct:0.30,price:300,weight:187.5},
-  {id:'mammoth',emoji:'🦣',tier:'Epic',pct:0.70,price:900,weight:120},
-  {id:'gorilla',emoji:'🦍',tier:'Epic',pct:0.75,price:900,weight:120},
-  {id:'dragon',emoji:'🐉',tier:'Legendary',pct:1.75,price:4000,weight:10}
+  {id:'dog',emoji:'🐕',tier:'Common',pct:0.23725,price:300,prob:23.725},
+  {id:'chicken',emoji:'🐓',tier:'Common',pct:0.23725,price:300,prob:23.725},
+  {id:'monkey',emoji:'🐒',tier:'Common',pct:0.23725,price:300,prob:23.725},
+  {id:'cat',emoji:'🐈‍⬛',tier:'Common',pct:0.23725,price:300,prob:23.725},
+  {id:'mammoth',emoji:'🦣',tier:'Epic',pct:0.70,price:900,prob:2.45},
+  {id:'gorilla',emoji:'🦍',tier:'Epic',pct:0.75,price:900,prob:2.45},
+  {id:'dragon',emoji:'🐉',tier:'Legendary',pct:1.75,price:4000,prob:0.095},
+  {id:'secretrex',emoji:'🦖',tier:'Secret',pct:5.0,price:20000,prob:0.005} // 0.005%
 ];
 
 let bag = []; // {typeId,emoji,pct,tier,price,lvl}
 let activeSlots = 2;
+let maxActiveSlots = 4;
 let active = new Array(activeSlots).fill(null);
 
-let petSlotPrice = 50000; // initial price, increases by 100000 each purchase
+let petSlotPrice = 50000;
 const petSlotIncrement = 100000;
+
+// Rebirth / Infinity
+let rebirthCount = 0;
+let rebirthCost = 1000000;
+let rebirthMultiplier = 1;
+let eggsOpened = 0;
+let infinityMode = false;
+let infinityWave = 0;
+let bestWave = 0;
 
 const monsterPool = [
   {emoji:'👾', baseHP:80, baseAtk:8},
@@ -197,6 +283,8 @@ const npcLabel = document.getElementById('npcLabel');
 const playerHPbar = document.getElementById('playerHPbar');
 const playerHPtext = document.getElementById('playerHPtext');
 const monsterEl = document.getElementById('monster');
+const monsterEmojiEl = monsterEl.querySelector('.monster-emoji');
+const monsterBadgeEl = monsterEl.querySelector('.monster-badge');
 const monsterHPbar = document.getElementById('monsterHPbar');
 const monsterHPtext = document.getElementById('monsterHPtext');
 const lobbyUI = document.getElementById('lobbyUI');
@@ -207,23 +295,51 @@ const equipBestBtn = document.getElementById('equipBestBtn');
 const buyPowerBtn = document.getElementById('buyPowerBtn');
 const buyPower10Btn = document.getElementById('buyPower10Btn');
 const buyPower100Btn = document.getElementById('buyPower100Btn');
+const buyPower1000Btn = document.getElementById('buyPower1000Btn');
+const buyPower10000Btn = document.getElementById('buyPower10000Btn');
 const buyHPBtn = document.getElementById('buyHPBtn');
 const buyHP10Btn = document.getElementById('buyHP10Btn');
 const buyHP100Btn = document.getElementById('buyHP100Btn');
 const buyPetSlotBtn = document.getElementById('buyPetSlotBtn');
+const autoSellBtn = document.getElementById('autoSellBtn');
+const autoSellEpicBtn = document.getElementById('autoSellEpicBtn');
+const rebirthBtn = document.getElementById('rebirthBtn');
+const infinityBtn = document.getElementById('infinityBtn');
 
 const atkBtn = document.getElementById('atkBtn');
 const ultBtn = document.getElementById('ultBtn');
 const healBtn = document.getElementById('healBtn');
+const surrenderBtn = document.getElementById('surrenderBtn');
+
 const eggModal = document.getElementById('eggModal');
 const eggsArea = document.getElementById('eggsArea');
 const bagCommon = document.getElementById('bagCommon');
 const bagEpic = document.getElementById('bagEpic');
 const bagLegend = document.getElementById('bagLegend');
+const bagSecret = document.getElementById('bagSecret');
 const activePetsDiv = document.getElementById('activePets');
 const winBox = document.getElementById('winBox');
 const toast = document.getElementById('toast');
+
+const eggsOpenedEl = document.getElementById('eggsOpened');
+const statPowerEl = document.getElementById('statPower');
+const statMaxHPEl = document.getElementById('statMaxHP');
 const activeSlotCountEl = document.getElementById('activeSlotCount');
+const totalPetsEl = document.getElementById('totalPets');
+const playerCodeLabel = document.getElementById('playerCodeLabel');
+const activePetsCountDisplay = document.getElementById('activePetsCountDisplay');
+const rebirthCountEl = document.getElementById('rebirthCount');
+const rebirthMultiplierEl = document.getElementById('rebirthMultiplier');
+const bestWaveEl = document.getElementById('bestWave');
+
+/* -----------------------------
+   Auth refs
+   ----------------------------- */
+const authModal = document.getElementById('authModal');
+const authCodeInput = document.getElementById('authCodeInput');
+const authLoginBtn = document.getElementById('authLoginBtn');
+const authRegisterBtn = document.getElementById('authRegisterBtn');
+let currentPlayerCode = null;
 
 /* -----------------------------
    Helpers
@@ -238,11 +354,50 @@ function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function formatNumber(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
 
 /* -----------------------------
-   Update UI (controls visibility & NPC only in lobby)
+   Save / Load (by code)
+   ----------------------------- */
+function saveKey(code){ return `emoji_save_${code}`; }
+function saveGame(){
+  if(!currentPlayerCode) return;
+  const data = {
+    gold, power, maxHP, playerHP, stage,
+    bag, activeSlots, active, petSlotPrice,
+    eggsOpened, rebirthCount, rebirthMultiplier, rebirthCost, bestWave
+  };
+  try {
+    localStorage.setItem(saveKey(currentPlayerCode), JSON.stringify(data));
+  } catch(e) { console.error('saveGame error', e); }
+}
+function loadGame(code){
+  const raw = localStorage.getItem(saveKey(code));
+  if(!raw) return false;
+  try{
+    const d = JSON.parse(raw);
+    gold = d.gold || 20;
+    power = d.power || 5;
+    maxHP = d.maxHP || 120;
+    playerHP = d.playerHP || maxHP;
+    stage = d.stage || 0;
+    bag = d.bag || [];
+    activeSlots = d.activeSlots || 2;
+    active = d.active || new Array(activeSlots).fill(null);
+    petSlotPrice = d.petSlotPrice || petSlotPrice;
+    eggsOpened = d.eggsOpened || 0;
+    rebirthCount = d.rebirthCount || 0;
+    rebirthMultiplier = d.rebirthMultiplier || 1;
+    rebirthCost = d.rebirthCost || rebirthCost;
+    bestWave = d.bestWave || 0;
+    return true;
+  }catch(e){ console.error('loadGame parse error', e); return false; }
+}
+function clearSave(code){ localStorage.removeItem(saveKey(code)); }
+
+/* -----------------------------
+   UI update
    ----------------------------- */
 function updateUI(){
   modeLabel.innerText = mode === 'lobby' ? 'Lobby' : `Stage ${stage}`;
-  goldLabel.innerText = gold;
+  goldLabel.innerText = formatNumber(gold);
   playerHPbar.style.width = Math.max(0, Math.floor(playerHP/maxHP*100)) + '%';
   playerHPtext.innerText = `${playerHP}/${maxHP}`;
   if(monsterMaxHP > 0){
@@ -253,19 +408,24 @@ function updateUI(){
     monsterHPtext.innerText = '';
   }
 
-  // show/hide sets
   lobbyUI.style.display = (mode === 'lobby') ? 'block' : 'none';
   advUI.style.display = (mode === 'adventure') ? 'flex' : 'none';
-
-  // NPC visible only in lobby
   if(mode === 'lobby'){ npc.style.display = 'block'; npcLabel.style.display = 'block'; openEggBtn.disabled = false; }
   else { npc.style.display = 'none'; npcLabel.style.display = 'none'; openEggBtn.disabled = true; }
 
-  // update pet slot display & buy button text
+  eggsOpenedEl.innerText = eggsOpened;
+  statPowerEl && (statPowerEl.innerText = power);
+  statMaxHPEl && (statMaxHPEl.innerText = maxHP);
   activeSlotCountEl.innerText = activeSlots;
-  buyPetSlotBtn.innerText = `ซื้อช่อง Active (+1) (${formatNumber(petSlotPrice)})`;
+  totalPetsEl.innerText = bag.length;
+  playerCodeLabel.innerText = currentPlayerCode ? currentPlayerCode : '-';
+  activePetsCountDisplay.innerText = activeSlots;
+  rebirthCountEl.innerText = rebirthCount;
+  rebirthMultiplierEl.innerText = rebirthMultiplier;
+  bestWaveEl.innerText = bestWave;
 
-  renderPets();
+  renderPets(); renderActiveSprites();
+  saveGame();
 }
 
 /* -----------------------------
@@ -273,7 +433,6 @@ function updateUI(){
    ----------------------------- */
 game.addEventListener('click', (e)=>{
   if(mode !== 'lobby') return;
-  // if NPC clicked, its handler stops propagation
   const rect = game.getBoundingClientRect();
   const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX);
   const x = clientX - rect.left;
@@ -282,7 +441,7 @@ game.addEventListener('click', (e)=>{
 });
 
 /* -----------------------------
-   NPC: open egg modal only in lobby
+   NPC egg modal
    ----------------------------- */
 npc.addEventListener('click', (e)=>{
   e.stopPropagation();
@@ -291,14 +450,14 @@ npc.addEventListener('click', (e)=>{
 });
 openEggBtn.addEventListener('click', (e)=>{ e.preventDefault(); if(mode !== 'lobby'){ showToast('พ่อค้าอยู่ที่ Lobby เท่านั้น'); return; } openEggModal(); });
 
-function openEggModal(){ eggModal.style.display = 'flex'; eggsArea.innerHTML = ''; eggSkip = false; }
+function openEggModal(){ eggModal.style.display = 'flex'; eggsArea.innerHTML = ''; eggSkip = false; renderDropRates(); }
 function closeEggModal(){ eggModal.style.display = 'none'; }
 
 /* -----------------------------
    Pets UI (render, sell, equip)
    ----------------------------- */
 function renderPets(){
-  bagCommon.innerHTML = ''; bagEpic.innerHTML = ''; bagLegend.innerHTML = ''; activePetsDiv.innerHTML = '';
+  bagCommon.innerHTML = ''; bagEpic.innerHTML = ''; bagLegend.innerHTML = ''; bagSecret.innerHTML = ''; activePetsDiv.innerHTML = '';
   // sanitize active indices (if bag changed)
   for(let i=0;i<active.length;i++){
     if(active[i] != null && (active[i] < 0 || active[i] >= bag.length)) active[i] = null;
@@ -306,13 +465,12 @@ function renderPets(){
 
   bag.forEach((p, idx) => {
     const el = document.createElement('div');
-    el.className = 'slot';
+    el.className = 'slot ' + (p.tier==='Secret'?'secret': p.tier==='Common'?'common': p.tier==='Epic'?'epic': p.tier==='Legendary'?'legend':'');
     el.innerText = p.emoji + (p.lvl > 1 ? ('+'+p.lvl) : '');
     el.title = `${p.tier}\nDMG ${Math.round(p.pct*100)}%\nขาย ${p.price}`;
     el.addEventListener('click', ()=>{
       const sell = confirm(`สัตว์ ${p.emoji}\nระดับ ${p.tier}\nดาเมจ ${Math.round(p.pct*100)}%\nกด ตกลง เพื่อขาย รับ ${p.price}\nกด ยกเลิก เพื่อใส่ Active`);
       if(sell){
-        // remove and adjust active indices
         removeBagIndex(idx);
         gold += p.price;
         showToast('ขายแล้ว');
@@ -323,10 +481,10 @@ function renderPets(){
     });
     if(p.tier === 'Common') bagCommon.appendChild(el);
     else if(p.tier === 'Epic') bagEpic.appendChild(el);
-    else bagLegend.appendChild(el);
+    else if(p.tier === 'Legendary') bagLegend.appendChild(el);
+    else if(p.tier === 'Secret') bagSecret.appendChild(el);
   });
 
-  // render active slots based on activeSlots
   for(let i=0;i<activeSlots;i++){
     const s = document.createElement('div');
     s.className = 'slot';
@@ -340,7 +498,6 @@ function renderPets(){
 }
 
 function removeBagIndex(idx){
-  // remove item and adjust active indices
   bag.splice(idx,1);
   for(let j=0;j<active.length;j++){
     if(active[j] == null) continue;
@@ -364,8 +521,6 @@ function equipBest(){
   for(let i=0;i<activeSlots && i < arr.length; i++) active[i] = arr[i].i;
   updateUI();
 }
-
-// attach equipBest button handler (fix)
 equipBestBtn.addEventListener('click', ()=>{
   if(mode !== 'lobby'){ showToast('ทำได้ที่ Lobby เท่านั้น'); return; }
   equipBest();
@@ -376,51 +531,68 @@ equipBestBtn.addEventListener('click', ()=>{
    ----------------------------- */
 let eggSkip = false;
 async function buyEggs(n){
-  const cost = 500 * n;
-  if(gold < cost){ showToast('เงินไม่พอ'); return; }
-  gold -= cost; updateUI();
-  eggsArea.innerHTML = ''; eggSkip = false;
-  const items = [];
-  for(let i=0;i<n;i++){
-    const el = document.createElement('div'); el.className = 'egg'; el.innerHTML = '<div>🥚</div>';
-    // add sway animation for suspense
-    el.classList.add('sway');
-    eggsArea.appendChild(el); items.push(el);
-  }
-  for(const el of items){
-    if(eggSkip){ revealEgg(el); continue; }
-    el.classList.add('crack'); await wait(300);
-    revealEgg(el); await wait(400);
-  }
-  // auto close shortly
-  setTimeout(()=>{ eggModal.style.display = 'none'; }, 600);
+  try{
+    const cost = 500 * n;
+    if(gold < cost){ showToast('เงินไม่พอ'); return; }
+    gold -= cost; eggsOpened += n; updateUI();
+    eggsArea.innerHTML = ''; eggSkip = false;
+    // create egg elements
+    const items = [];
+    for(let i=0;i<n;i++){
+      const el = document.createElement('div'); el.className = 'egg sway'; el.innerHTML = '<div>🥚</div>';
+      eggsArea.appendChild(el); items.push(el);
+    }
+    // reveal with short delay (fast enough to avoid long blocking)
+    for(const el of items){
+      if(eggSkip){ revealEgg(el); continue; }
+      el.classList.add('crack'); await wait(150);
+      revealEgg(el);
+      await wait(10);
+    }
+    setTimeout(()=>{ eggModal.style.display = 'none'; }, 400);
+  } catch(e){ console.error('buyEggs error', e); alert('เกิดข้อผิดพลาดในการสุ่มไข่'); }
 }
 function skipEggs(){ eggSkip = true; const all = [...eggsArea.querySelectorAll('.egg')]; all.forEach(revealEgg); }
 function revealEgg(el){
   if(el.dataset.r) return; el.dataset.r = '1';
-  // stop sway & crack animations
-  el.classList.remove('sway');
-  el.classList.remove('crack');
-  const total = petDefs.reduce((s,p)=>s+p.weight,0);
+  el.classList.remove('sway'); el.classList.remove('crack');
+  // pick by probability table
+  const total = petDefs.reduce((s,p)=>s+p.prob,0);
   let r = Math.random()*total;
   for(const p of petDefs){
-    if(r < p.weight){
+    if(r < p.prob){
       bag.push({typeId:p.id,emoji:p.emoji,pct:p.pct,tier:p.tier,price:p.price,lvl:1});
-      // show emoji on the egg visually
       el.classList.add('revealed');
       el.innerHTML = `<div style="font-size:34px">${p.emoji}</div>`;
       showToast(`ได้ ${p.tier} ${p.emoji}`);
       break;
     }
-    r -= p.weight;
+    r -= p.prob;
   }
   updateUI();
+}
+
+// quick buttons
+const buyEgg100Btn = document.getElementById('buyEgg100Btn');
+const buyEgg1000Btn = document.getElementById('buyEgg1000Btn');
+buyEgg100Btn.addEventListener('click', ()=> buyEggs(100));
+buyEgg1000Btn.addEventListener('click', ()=> buyEggs(1000));
+
+function renderDropRates(){
+  const total = petDefs.reduce((s,p)=>s+p.prob,0);
+  let html = 'อัตราออก: ';
+  petDefs.forEach(p=>{
+    const pct = Math.round((p.prob/total)*100000)/1000; // show with 3 decimals when needed
+    html += `<span style="margin-right:8px">${p.tier} ${p.emoji}: ${pct}%</span>`;
+  });
+  document.getElementById('dropRatesArea').innerHTML = html;
 }
 
 /* -----------------------------
    Start adventure / spawn / enter lobby
    ----------------------------- */
 startBtn.addEventListener('click', ()=> {
+  if(!currentPlayerCode){ showToast('ล็อกอินก่อน'); openAuth(); return; }
   if(mode !== 'lobby'){ showToast('กำลังผจญภัยอยู่'); return; }
   startAdventure();
 });
@@ -438,24 +610,41 @@ function enterLobby(){
   mode = 'lobby';
   stopLoops();
   stopRegen();
-  // remove monster from view
-  monsterEl.innerText = '';
+  monsterEmojiEl.innerText = '';
+  monsterBadgeEl.innerText = '';
   monsterMaxHP = 0; monsterHP = 0; monsterAtk = 0; isBoss = false;
+  infinityMode = false;
+  surrenderBtn.style.display = 'none';
   updateUI();
 }
 
 /* -----------------------------
-   Monster spawn & boss timer
+   Zones & spawn
+   ----------------------------- */
+function updateZone(){
+  const z = Math.floor((Math.max(1,stage)-1)/50)+1;
+  game.classList.remove('zone-1','zone-2','zone-3','zone-4');
+  if(z===1) game.classList.add('zone-1');
+  else if(z===2) game.classList.add('zone-2');
+  else if(z===3) game.classList.add('zone-3');
+  else game.classList.add('zone-4');
+}
+
+/* -----------------------------
+   Spawn monster & boss timer
    ----------------------------- */
 let bossTime = 0, bossTimer = null;
 function spawnMonster(){
+  updateZone();
   const m = randPick(monsterPool);
   isBoss = (stage % 5 === 0);
-  const scale = 1 + stage * 0.12;
+  const zoneBoost = Math.floor((stage-1)/50);
+  const scale = 1 + stage*0.12 + zoneBoost*0.7;
   monsterMaxHP = Math.floor(m.baseHP * scale * (isBoss ? 4 : 1) * MONSTER_HP_SCALE);
   monsterHP = monsterMaxHP;
-  monsterAtk = Math.max(1, Math.floor(m.baseAtk * (isBoss ? 1.6 : 1) * (1 + stage * 0.05)));
-  monsterEl.innerText = m.emoji + (isBoss ? ' 👑' : '');
+  monsterAtk = Math.max(1, Math.floor(m.baseAtk * (isBoss ? 1.6 : 1) * (1 + stage * 0.05) * (1+zoneBoost*0.4)));
+  monsterEmojiEl.innerText = m.emoji;
+  monsterBadgeEl.innerText = (isBoss ? '👑' : '') + (zoneBoost ? ' 🔥' : '');
   if(isBoss) startBossTimer();
   updateUI();
 }
@@ -472,30 +661,37 @@ function startBossTimer(){
 function clearBossTimer(){ if(bossTimer){ clearInterval(bossTimer); bossTimer = null; } }
 
 /* -----------------------------
-   Attacks (cooldowns)
+   Attacks & cooldowns
    ----------------------------- */
 atkBtn.addEventListener('click', playerAttack);
 ultBtn.addEventListener('click', playerUltimate);
 healBtn.addEventListener('click', playerHeal);
 
+function faceMonster(){ hero.style.transform='scaleX(1)'; }
+function faceNormal(){ hero.style.transform='scaleX(-1)'; }
+
 function playerAttack(){
   if(mode !== 'adventure' || !atkReady || monsterHP <= 0) return;
   atkReady = false; atkBtn.disabled = true;
-  hero.classList.add('move-attack'); setTimeout(()=>hero.classList.remove('move-attack'),220);
+  faceMonster();
+  hero.classList.add('move-attack'); setTimeout(()=>{ hero.classList.remove('move-attack'); faceNormal(); },700);
   const dmg = power;
   showDmgAtMonster(dmg,false);
   monsterHP = Math.max(0, monsterHP - dmg);
+  if(isBoss && bossTime>0) bossTime = Math.max(0, bossTime-1);
   if(monsterHP <= 0) onWin();
-  setTimeout(()=>{ atkReady = true; atkBtn.disabled = false; },1000);
+  setTimeout(()=>{ atkReady = true; atkBtn.disabled = false; },700);
   updateUI();
 }
 
 function playerUltimate(){
   if(mode !== 'adventure' || !ultReady || monsterHP <= 0) return;
   ultReady = false; ultBtn.disabled = true;
+  faceMonster();
   const dmg = power * 10;
   showDmgAtMonster(dmg,true);
   monsterHP = Math.max(0, monsterHP - dmg);
+  if(isBoss && bossTime>0) bossTime = Math.max(0, bossTime-2);
   if(monsterHP <= 0) onWin();
   let cd = 20; ultBtn.innerText = `อัลติ (${cd}s)`;
   const t = setInterval(()=>{ cd--; ultBtn.innerText = `อัลติ (${cd}s)`; if(cd <= 0){ clearInterval(t); ultReady = true; ultBtn.disabled = false; ultBtn.innerText = 'อัลติ'; } },1000);
@@ -514,40 +710,63 @@ function playerHeal(){
 
 /* -----------------------------
    Loops: monster attack & pet attacks
-   (monster attack interval changed to 2500ms)
    ----------------------------- */
 let monsterLoop = null, petLoop = null;
 function startLoops(){
   stopLoops();
+  // monster attack every 1.5s
   monsterLoop = setInterval(()=>{
     if(mode !== 'adventure' || monsterHP <= 0) return;
     monsterEl.classList.add('move-mattack'); setTimeout(()=>monsterEl.classList.remove('move-mattack'),220);
     const dmg = Math.max(1, monsterAtk);
     playerHP = Math.max(0, playerHP - dmg);
     showDmgAtPlayer('-'+dmg,'#ffd');
-    if(playerHP <= 0){ loseAndReset(); showToast('คุณตาย! ข้อมูลถูกล้าง'); }
+    if(playerHP <= 0){
+      if(infinityMode) { // end infinity run
+        endInfinity();
+      } else {
+        loseAndReset();
+        showToast('คุณตาย! ข้อมูลถูกล้าง');
+      }
+    }
     updateUI();
-  },2500); // <-- changed from 3000 to 2500 ms
+  },1500);
 
+  // pet attacks every 0.5s
   petLoop = setInterval(()=>{
     if(mode !== 'adventure' || monsterHP <= 0) return;
-    for(const idx of active){
+    for(let slotIndex=0; slotIndex<active.length; slotIndex++){
+      const idx = active[slotIndex];
       if(idx == null) continue;
       const p = bag[idx];
       if(!p) continue;
       const dmg = Math.max(0, Math.floor(power * p.pct * (1 + (p.lvl-1)*0.12)));
+      animatePetAttack(slotIndex);
       showDmgAtMonster(dmg,false,true);
       monsterHP = Math.max(0, monsterHP - dmg);
-      if(monsterHP <= 0){ onWin(); break; }
+      if(isBoss && bossTime>0) bossTime = Math.max(0, bossTime-1);
+      if(monsterHP <= 0){
+        if(infinityMode){
+          // increment wave and spawn next
+          infinityWave++;
+          if(infinityWave > bestWave) bestWave = infinityWave;
+          stage++;
+          spawnMonster();
+          // continue loop
+        } else {
+          onWin();
+        }
+        break;
+      }
     }
     updateUI();
-  },1000);
+  },500);
 }
 
-function stopLoops(){ if(monsterLoop){ clearInterval(monsterLoop); monsterLoop = null; } if(petLoop){ clearInterval(petLoop); petLoop = null; } clearBossTimer(); }
+function stopLoops(){ if(monsterLoop){ clearInterval(monsterLoop); monsterLoop=null; } if(petLoop){ clearInterval(petLoop); petLoop=null; } clearBossTimer(); }
 
 /* -----------------------------
-   Regen 10% every 5s (adventure only)
+   Regen
    ----------------------------- */
 let regenTimer = null;
 function startRegen(){
@@ -562,20 +781,24 @@ function startRegen(){
     }
   },5000);
 }
-function stopRegen(){ if(regenTimer){ clearInterval(regenTimer); regenTimer = null; } }
+function stopRegen(){ if(regenTimer){ clearInterval(regenTimer); regenTimer=null; } }
 
 /* -----------------------------
-   Win / Lose (with choice to continue)
+   Win / Lose / Infinity end
    ----------------------------- */
 function onWin(){
+  // Infinity behaviour handled in loops; normal onWin:
+  if(infinityMode){
+    // handled in pet loop to continue waves
+    return;
+  }
   stopLoops(); stopRegen();
-  const reward = isBoss ? stage * BOSS_REWARD_MULT : stage * NORMAL_REWARD_MULT;
+  const reward = isBoss ? Math.floor(stage * BOSS_REWARD_MULT * rebirthMultiplier) : Math.floor(stage * NORMAL_REWARD_MULT * rebirthMultiplier);
   gold += reward;
-  playerHP = maxHP; // heal full on win
-  // Show choice UI
+  playerHP = maxHP;
   winBox.innerHTML = `
     🎉 ชนะแล้ว!<br>
-    เงิน +${reward}<div style="margin-top:10px" class="small">เลือก: กลับ Lobby หรือ สู้ต่อ</div>
+    เงิน +${formatNumber(reward)}<div style="margin-top:10px" class="small">เลือก: กลับ Lobby หรือ สู้ต่อ</div>
     <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
       <button id="btnToLobby" class="shop">กลับ Lobby</button>
       <button id="btnContinue" class="shop">สู้ต่อ</button>
@@ -583,21 +806,8 @@ function onWin(){
   `;
   winBox.style.display = 'block';
   updateUI();
-
-  // attach handlers
-  document.getElementById('btnToLobby').addEventListener('click', ()=>{
-    winBox.style.display = 'none';
-    enterLobby();
-  });
-  document.getElementById('btnContinue').addEventListener('click', ()=>{
-    winBox.style.display = 'none';
-    // go to next stage and spawn new monster and resume loops
-    stage++;
-    spawnMonster();
-    startLoops();
-    startRegen();
-    updateUI();
-  });
+  document.getElementById('btnToLobby').addEventListener('click', ()=>{ winBox.style.display='none'; enterLobby(); });
+  document.getElementById('btnContinue').addEventListener('click', ()=>{ winBox.style.display='none'; stage++; spawnMonster(); startLoops(); startRegen(); updateUI(); });
 }
 
 function loseAndReset(){
@@ -606,65 +816,110 @@ function loseAndReset(){
   gold = 20; power = 5; maxHP = 120; playerHP = maxHP; stage = 0;
   mode = 'lobby';
   stopLoops(); stopRegen(); clearBossTimer();
-  monsterEl.innerText = ''; monsterMaxHP = 0; monsterHP = 0; isBoss = false;
+  monsterEmojiEl.innerText = ''; monsterBadgeEl.innerText = '';
+  monsterMaxHP = 0; monsterHP = 0; isBoss = false;
   updateUI();
   showToast('แพ้! ข้อมูลถูกล้าง');
 }
 
-/* -----------------------------
-   Damage visual helpers
-   ----------------------------- */
-function showDmgAtMonster(n,isCrit=false,fromPet=false){
-  const el = document.createElement('div'); el.className = 'dmg';
-  el.innerText = (isCrit ? 'CRIT '+n : n);
-  el.style.left = (280 + (fromPet ? -40 : 0)) + 'px'; el.style.top = '28px';
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(),900);
-}
-function showDmgAtPlayer(txt,color='#ffd'){
-  const el = document.createElement('div'); el.className = 'dmg';
-  el.style.color = color; el.innerText = txt;
-  el.style.left = '80px'; el.style.top = '28px';
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(),900);
+function endInfinity(){
+  // called when player dies in infinity or surrenders
+  const payout = Math.floor(infinityWave * 10 * (rebirthMultiplier || 1));
+  gold += payout;
+  if(infinityWave > bestWave) bestWave = infinityWave;
+  showToast(`จบ Infinity! ได้เงิน ${formatNumber(payout)} (เวฟ ${infinityWave})`);
+  infinityMode = false; infinityWave = 0;
+  surrenderBtn.style.display = 'none';
+  enterLobby();
+  updateUI();
 }
 
 /* -----------------------------
-   Upgrades (Lobby only) + bulk buys
+   Damage visuals (fixed to position over monster/player)
    ----------------------------- */
-buyPowerBtn.addEventListener('click', ()=>{ buyPower(1); });
-buyPower10Btn.addEventListener('click', ()=>{ buyPower(10); });
-buyPower100Btn.addEventListener('click', ()=>{ buyPower(100); });
+function showDmgAtMonster(n,isCrit=false,fromPet=false){
+  try{
+    const rect = monsterEl.getBoundingClientRect();
+    const gameRect = game.getBoundingClientRect();
+    const el = document.createElement('div'); el.className = 'dmg';
+    el.innerText = (isCrit ? 'CRIT '+n : n);
+    el.style.left = (rect.left + rect.width/2 - gameRect.left - 20) + 'px';
+    el.style.top = (rect.top - gameRect.top - 10) + 'px';
+    game.appendChild(el);
+    setTimeout(()=>el.remove(),900);
+  }catch(e){ console.error('showDmgAtMonster error', e); }
+}
+function showDmgAtPlayer(txt,color='#ffd'){
+  try{
+    const rect = hero.getBoundingClientRect();
+    const gameRect = game.getBoundingClientRect();
+    const el = document.createElement('div'); el.className = 'dmg';
+    el.style.color = color; el.innerText = txt;
+    el.style.left = (rect.left - gameRect.left + 30) + 'px';
+    el.style.top = (rect.top - gameRect.top - 10) + 'px';
+    game.appendChild(el);
+    setTimeout(()=>el.remove(),900);
+  }catch(e){ console.error('showDmgAtPlayer error', e); }
+}
+
+/* -----------------------------
+   Pet sprites & animations (above hero)
+   ----------------------------- */
+function renderActiveSprites(){
+  const old = game.querySelectorAll('.pet-sprite');
+  old.forEach(o=>o.remove());
+  if(mode !== 'adventure') return;
+  const heroBottom = parseInt(getComputedStyle(hero).bottom) || 22;
+  for(let i=0;i<activeSlots;i++){
+    const idx = active[i];
+    const el = document.createElement('div');
+    el.className = 'pet-sprite';
+    el.style.left = (hero.offsetLeft + 40 + i*34) + 'px';
+    el.style.bottom = (heroBottom + 80) + 'px';
+    el.innerText = idx != null && bag[idx] ? bag[idx].emoji : '';
+    game.appendChild(el);
+  }
+}
+function animatePetAttack(slotIndex){
+  const sprites = game.querySelectorAll('.pet-sprite');
+  const s = sprites[slotIndex];
+  if(!s) return;
+  s.classList.remove('pet-attack');
+  void s.offsetWidth;
+  s.classList.add('pet-attack');
+}
+
+/* -----------------------------
+   Upgrades: bulk & cost (simple incremental)
+   ----------------------------- */
+buyPowerBtn.addEventListener('click', ()=> buyPower(1));
+buyPower10Btn.addEventListener('click', ()=> buyPower(10));
+buyPower100Btn.addEventListener('click', ()=> buyPower(100));
+buyPower1000Btn.addEventListener('click', ()=> buyPower(1000));
+buyPower10000Btn.addEventListener('click', ()=> buyPower(10000));
 
 function buyPower(n){
   if(mode !== 'lobby'){ showToast('อัพได้ที่ Lobby เท่านั้น'); return; }
   const costPer = 10;
-  const total = costPer * n;
-  if(gold < total){
-    const can = Math.floor(gold / costPer);
-    if(can <= 0){ showToast('เงินไม่พอ'); return; }
-    // buy as many as possible
-    n = can;
-  }
+  let can = Math.floor(gold / costPer);
+  if(can === 0){ showToast('เงินไม่พอ'); return; }
+  if(n > can) n = can;
   gold -= costPer * n;
   power += n;
   showToast(`อัพพลัง x${n}`);
   updateUI();
 }
 
-buyHPBtn.addEventListener('click', ()=>{ buyHP(1); });
-buyHP10Btn.addEventListener('click', ()=>{ buyHP(10); });
-buyHP100Btn.addEventListener('click', ()=>{ buyHP(100); });
+buyHPBtn.addEventListener('click', ()=> buyHP(1));
+buyHP10Btn.addEventListener('click', ()=> buyHP(10));
+buyHP100Btn.addEventListener('click', ()=> buyHP(100));
 
 function buyHP(n){
   if(mode !== 'lobby'){ showToast('อัพได้ที่ Lobby เท่านั้น'); return; }
   const costPer = 15;
-  const total = costPer * n;
-  if(gold < total){
-    const can = Math.floor(gold / costPer);
-    if(can <= 0){ showToast('เงินไม่พอ'); return; }
-    n = can;
-  }
+  let can = Math.floor(gold / costPer);
+  if(can === 0){ showToast('เงินไม่พอ'); return; }
+  if(n > can) n = can;
   gold -= costPer * n;
   maxHP += 20 * n;
   playerHP = maxHP;
@@ -673,18 +928,101 @@ function buyHP(n){
 }
 
 /* -----------------------------
-   Buy pet slot
+   Buy pet slot (max 4)
    ----------------------------- */
 buyPetSlotBtn.addEventListener('click', ()=>{
   if(mode !== 'lobby'){ showToast('ซื้อได้ที่ Lobby เท่านั้น'); return; }
+  if(activeSlots >= maxActiveSlots){ showToast('ถึงขีดจำกัดแล้ว'); return; }
   if(gold < petSlotPrice){ showToast('เงินไม่พอ'); return; }
   gold -= petSlotPrice;
   petSlotPrice += petSlotIncrement;
   activeSlots++;
-  // expand active array
   active = active.concat(new Array(1).fill(null));
   showToast('ซื้อช่องสำเร็จ');
   updateUI();
+});
+
+/* -----------------------------
+   Auto-sell commons / epics
+   ----------------------------- */
+autoSellBtn.addEventListener('click', ()=>{
+  if(bag.length === 0){ showToast('ไม่มีสัตว์'); return; }
+  let sold = 0, income = 0;
+  for(let i = bag.length - 1; i >= 0; i--){
+    if(bag[i].tier === 'Common'){
+      income += bag[i].price;
+      sold++;
+      bag.splice(i,1);
+    }
+  }
+  gold += income;
+  showToast(`ขาย ${sold} ตัว รับ ${formatNumber(income)}`);
+  updateUI();
+});
+
+autoSellEpicBtn.addEventListener('click', ()=>{
+  if(bag.length === 0){ showToast('ไม่มีสัตว์'); return; }
+  let sold = 0, income = 0;
+  for(let i = bag.length - 1; i >= 0; i--){
+    if(bag[i].tier === 'Epic'){
+      income += bag[i].price;
+      sold++;
+      bag.splice(i,1);
+    }
+  }
+  gold += income;
+  showToast(`ขาย ${sold} ตัว Epic รับ ${formatNumber(income)}`);
+  updateUI();
+});
+
+/* -----------------------------
+   Rebirth (keep bag, eggsOpened, bestWave; reset active & stats)
+   ----------------------------- */
+rebirthBtn.addEventListener('click', ()=>{
+  if(!currentPlayerCode){ showToast('ล็อกอินก่อน'); openAuth(); return; }
+  if(gold < rebirthCost){ showToast('เงินไม่พอสำหรับ Rebirth'); return; }
+  if(!confirm(`Rebirth จะรีเซ็ตพลังและด่าน แต่เก็บสัตว์, ประวัติการสุ่มไข่ และ Best Wave ไว้\nค่าใช้จ่าย: ${formatNumber(rebirthCost)}\nคุณแน่ใจหรือไม่?`)) return;
+
+  gold -= rebirthCost;
+  rebirthCount++;
+  rebirthMultiplier *= 2;
+  rebirthCost = Math.ceil(rebirthCost * 1.7);
+
+  // Keep bag, eggsOpened, bestWave
+  // Reset active & player stats
+  active = new Array(2).fill(null);
+  activeSlots = 2;
+  petSlotPrice = 50000;
+
+  power = 5;
+  maxHP = 120;
+  playerHP = maxHP;
+  stage = 0;
+
+  saveGame(); updateUI();
+  showToast('Rebirth เรียบร้อย! ครั้งที่: ' + rebirthCount + ' ตัวคูณ x' + rebirthMultiplier);
+});
+
+/* -----------------------------
+   Infinity Mode (from Lobby)
+   ----------------------------- */
+infinityBtn.addEventListener('click', ()=>{
+  if(!currentPlayerCode){ showToast('ล็อกอินก่อน'); openAuth(); return; }
+  if(mode !== 'lobby'){ showToast('ออกจาก Lobby ก่อน'); return; }
+  if(!confirm('เข้าโหมด Infinity? มอนจะไม่ให้เงิน แต่จะนับเวฟ ยอมแพ้เพื่อรับรางวัลจากเวฟ')) return;
+  infinityMode = true; infinityWave = 0; mode = 'adventure'; stage = 1; spawnMonster(); startLoops(); startRegen(); updateUI(); surrenderBtn.style.display = 'inline-block';
+});
+
+surrenderBtn.addEventListener('click', ()=>{
+  if(!infinityMode) return;
+  if(confirm('ยอมแพ้และรับรางวัลจากเวฟที่ทำได้?')){
+    const payout = Math.floor(infinityWave * 10 * (rebirthMultiplier || 1));
+    gold += payout;
+    if(infinityWave > bestWave) bestWave = infinityWave;
+    infinityMode = false; surrenderBtn.style.display = 'none';
+    showToast(`จบ Infinity! ได้เงิน ${formatNumber(payout)} (เวฟ ${infinityWave})`);
+    enterLobby(); updateUI();
+  }
 });
 
 /* -----------------------------
@@ -695,14 +1033,67 @@ window.skipEggs = skipEggs;
 window.closeEggModal = closeEggModal;
 
 /* -----------------------------
+   Auth (register & login) - NO auto-login
+   ----------------------------- */
+function openAuth(){ authModal.style.display = 'flex'; authCodeInput.value = ''; authCodeInput.focus(); }
+authLoginBtn.addEventListener('click', ()=>{
+  const code = (authCodeInput.value || '').trim();
+  if(!code){ alert('ใส่รหัสก่อน'); return; }
+  if(!loadGame(code)){
+    if(!confirm('ไม่พบข้อมูลสำหรับรหัสนี้ ต้องการสร้างบัญชีใหม่โดยใช้รหัสนี้หรือไม่?')) return;
+    currentPlayerCode = code;
+    bag = []; activeSlots = 2; active = new Array(activeSlots).fill(null);
+    gold = 20; power = 5; maxHP = 120; playerHP = maxHP; stage = 0; eggsOpened = 0; petSlotPrice = 50000;
+    saveGame();
+  } else {
+    currentPlayerCode = code;
+  }
+  localStorage.setItem('emoji_lastcode', code);
+  authModal.style.display = 'none';
+  showToast('ยินดีต้อนรับ ' + code);
+  updateUI();
+});
+authRegisterBtn.addEventListener('click', ()=>{
+  const code = (authCodeInput.value || '').trim();
+  if(!code){ alert('ใส่รหัสก่อน'); return; }
+  if(localStorage.getItem(saveKey(code))){
+    if(!confirm('พบข้อมูลเดิมสำหรับรหัสนี้ ต้องการลบแล้วสมัครใหม่หรือไม่?')) return;
+  }
+  currentPlayerCode = code;
+  bag = []; activeSlots = 2; active = new Array(activeSlots).fill(null);
+  gold = 20; power = 5; maxHP = 120; playerHP = maxHP; stage = 0; eggsOpened = 0; petSlotPrice = 50000; rebirthCount = 0; rebirthMultiplier = 1; rebirthCost = 1000000; bestWave = 0;
+  saveGame();
+  localStorage.setItem('emoji_lastcode', code);
+  authModal.style.display = 'none';
+  showToast('สมัครเรียบร้อย ' + code);
+  updateUI();
+});
+const logoutBtn = document.getElementById('logoutBtn');
+logoutBtn.addEventListener('click', ()=>{
+  if(!currentPlayerCode) return;
+  if(confirm('ออกจากระบบ? (ข้อมูลอยู่ในเครื่อง ได้รับการบันทึกอัตโนมัติ)')){
+    currentPlayerCode = null;
+    playerCodeLabel.innerText = '-';
+    openAuth();
+  }
+});
+
+/* -----------------------------
    Init
    ----------------------------- */
-updateUI();
+function init(){
+  // DO NOT auto-login; force user to login/register
+  openAuth();
+  updateUI();
+}
+init();
 
-// accessibility: press Enter on npc icon to open when in lobby
-npc.addEventListener('keydown',(e)=>{ if(e.key === 'Enter') npc.click(); });
+/* -----------------------------
+   Window resize
+   ----------------------------- */
+window.addEventListener('resize', renderActiveSprites);
 
 }); // DOMContentLoaded
 </script>
 </body>
-  </html>
+</html>
